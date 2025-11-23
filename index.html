@@ -50,7 +50,7 @@
         }
 
         .stats-column {
-            display: flex; flex-direction: column; gap: 5px; pointer-events: auto; width: 240px;
+            display: flex; flex-direction: column; gap: 5px; pointer-events: auto; width: clamp(180px, 48vw, 240px);
         }
 
         .hud-card {
@@ -159,9 +159,9 @@
         }
         
         #bathtub { top: 45%; left: 10%; z-index: 5; }
-        #bathtub .zone-img { width: 240px; }
+        #bathtub .zone-img { width: clamp(160px, 32vw, 240px); }
         #toilet { top: 45%; right: 15%; z-index: 5; }
-        #toilet .zone-img { width: 130px; }
+        #toilet .zone-img { width: clamp(90px, 18vw, 130px); }
         #doghouse { top: 35%; left: 10%; z-index: 5; }
         #garden   { top: 60%; right: 15%; z-index: 5; }
 
@@ -247,6 +247,22 @@
         #save-indicator {
             position: absolute; bottom: 10px; left: 10px; font-size: 0.8rem; color: rgba(0,0,0,0.5);
             z-index: 300; opacity: 0; transition: opacity 0.5s;
+        }
+        @media (max-width: 600px) {
+            #game-container { border-radius: 0; }
+            .ui-layer { padding: 8px 10px; }
+            .stats-column { width: clamp(160px, 52vw, 240px); }
+            .hud-card { padding: 4px 8px; }
+            .bar-track { height: 6px; }
+            .bar-label { font-size: 0.65rem; }
+            .wallet-text { font-size: clamp(0.9rem, 3.5vw, 1.1rem); }
+            .nav-wrapper { max-width: 100%; justify-content: center; }
+            .nav-btn { padding: 6px 10px; font-size: clamp(0.75rem, 3.8vw, 0.9rem); }
+            .zone-label { font-size: clamp(0.7rem, 3.5vw, 0.8rem); }
+        }
+        @media (min-width: 1200px) {
+            .nav-btn { font-size: 1rem; padding: 10px 14px; }
+            .wallet-text { font-size: 1.15rem; }
         }
     </style>
 </head>
