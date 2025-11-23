@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dog House 2.1 - Versão Ajustada</title>
+    <style>
+        /* --- CSS GERAL E VARIÁVEIS --- */
+        :root {
+            --bg-wall-bedroom: #FFF0F5; --bg-floor-bedroom: #E6C288; 
+            --bg-wall-kitchen: #E0F7FA; --bg-floor-kitchen: #FFF8E1; 
+            --bg-wall-living: #FFF9C4; --bg-floor-living: #D7CCC8; 
+            --bg-sky-backyard: #87CEEB; --bg-grass-backyard: #7CFC00; 
+            --bg-wall-bath: #E3F2FD; --bg-floor-bath: #BBDEFB;
+            
+            --primary: #FF69B4;
+            --money-earn: #4CAF50;
+            --energy-high: #76FF03; --energy-low: #D50000;
+            --hygiene-color: #29B6F6;
+            --happy-color: #FFEB3B;
+            --ui-bg: rgba(255, 255, 255, 0.95);
+            
+            --font-stack: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            margin: 0; padding: 0; height: 100vh; width: 100vw;
+            font-family: var(--font-stack); overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            background-color: #263238;
+        }
+
+        #game-container {
+            position: relative; width: 100%; height: 100%;
+            max-width: 1024px; max-height: 768px;
+            background-color: white;
+            box-shadow: 0 0 30px rgba(0,0,0,0.6); overflow: hidden;
+            border-radius: 8px;
+        }
+
+        /* --- HUD SUPERIOR --- */
+        .ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; 
+            padding: 10px 15px; z-index: 200;
+            display: flex; justify-content: space-between; align-items: flex-start;
+            pointer-events: none;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 100%);
+        }
+
+        .stats-column {
+            display: flex; flex-direction: column; gap: 5px; pointer-events: auto; width: 240px;
+        }
+
+        .hud-card {
+            background: var(--ui-bg); padding: 4px 10px;
+            border-radius: 12px; border-left: 5px solid #ccc;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .status-row { width: 100%; display: flex; flex-direction: column; }
+        .bar-label { font-size: 0.7rem; color: #555; display:flex; justify-content:space-between; margin-bottom: 2px;}
+        .bar-track { width: 100%; height: 8px; background: #ddd; border-radius: 4px; overflow: hidden; border: 1px solid #ccc; }
+        
+        .energy-card { border-left-color: var(--energy-high); }
+        .energy-fill { height: 100%; width: 100%; background: var(--energy-high); transition: width 0.5s; }
+        
+        .hygiene-card { border-left-color: var(--hygiene-color); }
+        .hygiene-fill { height: 100%; width: 100%; background: var(--hygiene-color); transition: width 0.5s; }
+        
+        .happy-card { border-left-color: var(--happy-color); }
+        .happy-fill { height: 100%; width: 100%; background: var(--happy-color); transition: width 0.5s; }
+
+        .wallet-card { border-left-color: var(--money-earn); margin-top: 5px; }
+        .wallet-text { font-weight: bold; color: #2E7D32; font-size: 1.1rem; }
+
+        /* Navegação */
+        .nav-wrapper {
+            pointer-events: auto; display: flex; gap: 6px; flex-wrap: wrap; 
+            justify-content: flex-end; max-width: 60%;
+        }
+        .nav-btn {
+            position: relative; background: white; border: 2px solid #CFD8DC;
+            border-radius: 12px; padding: 8px 12px;
+            cursor: pointer; font-size: 0.9rem; font-weight: bold; color: #37474F;
+            transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .nav-btn:active { transform: scale(0.95); }
+        .nav-btn.active {
+            background: var(--primary); color: white; border-color: white;
+            transform: scale(1.05); box-shadow: 0 4px 10px rgba(255, 105, 180, 0.4);
+        }
+        .nav-btn[data-room="market"].active { background: #009688; }
+        .task-badge {
+            position: absolute; top: -4px; right: -4px; width: 10px; height: 10px;
+            background: #F44336; border-radius: 50%; display: none; border: 1px solid white; animation: pulseBadge 1s infinite;
+        }
+        @keyframes pulseBadge { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+
+        /* --- CENÁRIOS --- */
+        .room-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; display: none; }
+        .room-bg.active { display: block; }
+        
+        .bg-bedroom { background: linear-gradient(to bottom, var(--bg-wall-bedroom) 65%, var(--bg-floor-bedroom) 65%); }
+        .bg-kitchen { background: linear-gradient(to bottom, var(--bg-wall-kitchen) 65%, var(--bg-floor-kitchen) 65%); }
+        .bg-livingroom { background: linear-gradient(to bottom, var(--bg-wall-living) 65%, var(--bg-floor-living) 65%); }
+        .bg-backyard { background: linear-gradient(to bottom, var(--bg-sky-backyard) 65%, var(--bg-grass-backyard) 65%); }
+        .bg-bathroom { background: linear-gradient(to bottom, var(--bg-wall-bath) 65%, var(--bg-floor-bath) 65%); }
+        .bg-market { background: linear-gradient(to bottom, #ECEFF1 100%, #CFD8DC 100%); }
+
+        /* --- MÓVEIS E ZONAS --- */
+        .room-content { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; display: none; }
+        .room-content.active { display: block; }
+
+        .drop-zone {
+            position: absolute; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; transition: transform 0.2s;
+        }
+        .drop-zone.hovered { transform: scale(1.05); filter: brightness(1.1); }
+        
+        .zone-img { 
+            width: 180px; height: auto; 
+            pointer-events: none; 
+            filter: drop-shadow(4px 4px 0px rgba(0,0,0,0.1)); 
+            display: block;
+        }
+        .zone-label {
+            background: rgba(255,255,255,0.9); padding: 4px 8px; border-radius: 10px;
+            font-size: 0.8rem; font-weight: bold; margin-top: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* POSICIONAMENTO GERAL */
+        #wardrobe { top: 25%; left: 2%; z-index: 5; } 
+        #dogbed { top: 55%; left: 18%; z-index: 15; } 
+        #toybox { top: 50%; right: 10%; z-index: 10; }
+        #fridge   { top: 15%; left: 10%; z-index: 5; }
+        #table    { top: 55%; right: 20%; z-index: 10; opacity: 0.8; pointer-events: none; } 
+        #bowl     { top: 65%; left: 20%; z-index: 12; }
+        #bowl .zone-img { width: 100px; }
+        
+        /* --- NOVA SALA (AJUSTADA) --- */
+        #tvstand  { top: 30%; left: 5%; z-index: 5; }
+        #sofa     { top: 55%; right: 30%; z-index: 10; } 
+        #sidetable { top: 65%; right: 5%; z-index: 12; }
+        #bookshelf { top: 15%; right: 15%; z-index: 5; } /* NOVO MÓVEL */
+
+        #tvstand .zone-img { width: 220px; }
+        #sofa .zone-img { width: 250px; }
+        #sidetable .zone-img { width: 100px; }
+        #bookshelf .zone-img { width: 160px; height: 200px; object-fit: contain;} /* Tamanho da estante */
+        
+        #living-rug {
+            position: absolute; top: 62%; right: 23%; width: 320px; height: 100px;
+            background-color: #9FA8DA; border: 4px dashed #FFF; border-radius: 50%; 
+            z-index: 8; pointer-events: none; transform: rotate(-2deg);
+        }
+        
+        #bathtub { top: 45%; left: 10%; z-index: 5; }
+        #bathtub .zone-img { width: 240px; }
+        #toilet { top: 45%; right: 15%; z-index: 5; }
+        #toilet .zone-img { width: 130px; }
+        #doghouse { top: 35%; left: 10%; z-index: 5; }
+        #garden   { top: 60%; right: 15%; z-index: 5; }
+
+        /* --- ITENS E CACHORRO --- */
+        .draggable {
+            position: absolute; cursor: grab; font-size: 3rem; z-index: 50;
+            filter: drop-shadow(3px 5px 2px rgba(0,0,0,0.2)); transition: transform 0.1s;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .draggable:active { cursor: grabbing; transform: scale(1.2); z-index: 100; }
+
+        #avatar-dog { 
+            width: 100px; z-index: 90; position: absolute;
+            /* Adicionado transição para o transform também para suavizar a escala */
+            transition: top 1s ease-in-out, left 1s ease-in-out, filter 0.3s, transform 0.5s ease; 
+            cursor: grab; 
+        }
+        
+        .dog-hungry { animation: shakeDog 0.5s infinite; }
+        .dog-dirty { filter: sepia(0.8) brightness(0.7) drop-shadow(0 0 5px #5D4037); }
+        .dog-dirty::after { content: '🪰'; position: absolute; top: -10px; right: -10px; font-size: 1.5rem; animation: flyAround 2s infinite; }
+        
+        @keyframes shakeDog { 0% { transform: rotate(0deg); } 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } 100% { transform: rotate(0deg); } }
+        @keyframes flyAround { 0% { transform: translate(0,0); } 50% { transform: translate(10px, -10px); } 100% { transform: translate(0,0); } }
+        @keyframes munch { 0% { transform: scale(1); } 100% { transform: scale(1.15) translateY(-5px); } }
+
+        /* --- MERCADO UI --- */
+        .market-item { font-size: 2.2rem; z-index: 55; }
+        .price-tag {
+            background: #FFEB3B; color: #000; font-size: 0.7rem; font-weight: bold;
+            padding: 2px 4px; border-radius: 4px; border: 1px solid #FBC02D;
+            margin-top: -5px; pointer-events: none;
+        }
+        
+        #market-nav {
+            position: absolute; top: 13%; left: 50%; transform: translateX(-50%);
+            z-index: 150; display: none; background: white; padding: 5px; border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+        .market-tab {
+            border: none; background: transparent; padding: 8px 16px; border-radius: 30px;
+            font-weight: bold; color: #90A4AE; cursor: pointer; transition: 0.3s;
+        }
+        .market-tab.active { background: #009688; color: white; }
+
+        #shopping-cart { top: 75%; left: 50%; transform: translateX(-50%); z-index: 100; }
+        #shopping-cart .zone-img { width: 200px; opacity: 0.8; }
+
+        #checkout-btn {
+            position: absolute; bottom: 20px; right: 20px; z-index: 250; display: none;
+            background: #4CAF50; color: white; font-size: 1.1rem; font-weight: bold;
+            padding: 12px 20px; border: none; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+        #checkout-btn:disabled { background: #CFD8DC; cursor: not-allowed; box-shadow: none; }
+
+        /* --- FEEDBACK & VFX --- */
+        .float-feedback {
+            position: absolute; font-weight: bold; font-size: 1.5rem; pointer-events: none; z-index: 300;
+            animation: floatUp 1s ease-out forwards; text-shadow: 1px 1px 0 #fff;
+        }
+        @keyframes floatUp { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-50px); opacity: 0; } }
+
+        .particle { position: absolute; width: 8px; height: 8px; border-radius: 50%; pointer-events: none; z-index: 290; }
+        .emoji-particle { position: absolute; font-size: 1.5rem; pointer-events: none; z-index: 295; }
+
+        .heart-anim {
+            position: absolute; font-size: 2rem; pointer-events: none; z-index: 300;
+            animation: floatUpHeart 1.5s ease-out forwards;
+        }
+        @keyframes floatUpHeart { 0% { transform: translateY(0) scale(0.5); opacity: 1; } 100% { transform: translateY(-100px) scale(1.5); opacity: 0; } }
+
+        #game-over-screen {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 500; color: white;
+            flex-direction: column; align-items: center; justify-content: center; text-align: center;
+        }
+        .restart-btn {
+            margin-top: 20px; padding: 15px 30px; font-size: 1.5rem; background: var(--primary);
+            border: none; color: white; border-radius: 10px; cursor: pointer;
+        }
+
+        #save-indicator {
+            position: absolute; bottom: 10px; left: 10px; font-size: 0.8rem; color: rgba(0,0,0,0.5);
+            z-index: 300; opacity: 0; transition: opacity 0.5s;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    
+    <!-- HUD -->
+    <div class="ui-layer">
+        <div class="stats-column">
+            <div class="hud-card energy-card">
+                <span>❤️</span>
+                <div class="status-row">
+                    <div class="bar-label"><span>Energia</span> <span id="energy-val">100%</span></div>
+                    <div class="bar-track"><div id="energy-bar" class="energy-fill"></div></div>
+                </div>
+            </div>
+            <div class="hud-card hygiene-card">
+                <span>🧼</span>
+                <div class="status-row">
+                    <div class="bar-label"><span>Higiene</span> <span id="hygiene-val">100%</span></div>
+                    <div class="bar-track"><div id="hygiene-bar" class="hygiene-fill"></div></div>
+                </div>
+            </div>
+            <div class="hud-card happy-card">
+                <span>😊</span>
+                <div class="status-row">
+                    <div class="bar-label"><span>Felicidade</span> <span id="happy-val">100%</span></div>
+                    <div class="bar-track"><div id="happy-bar" class="happy-fill"></div></div>
+                </div>
+            </div>
+            <div id="wallet-card" class="hud-card wallet-card">
+                <span>💰</span>
+                <div class="wallet-text">R$ <span id="wallet">100</span></div>
+            </div>
+        </div>
+
+        <div class="nav-wrapper">
+            <button class="nav-btn active" data-room="bedroom" onclick="changeRoom('bedroom')">🛏️ Quarto <span class="task-badge"></span></button>
+            <button class="nav-btn" data-room="kitchen" onclick="changeRoom('kitchen')">🍳 Cozinha <span class="task-badge"></span></button>
+            <button class="nav-btn" data-room="livingroom" onclick="changeRoom('livingroom')">🛋️ Sala <span class="task-badge"></span></button>
+            <button class="nav-btn" data-room="bathroom" onclick="changeRoom('bathroom')">🛁 Banheiro <span class="task-badge"></span></button>
+            <button class="nav-btn" data-room="backyard" onclick="changeRoom('backyard')">🌳 Quintal <span class="task-badge"></span></button>
+            <button class="nav-btn" data-room="market" onclick="changeRoom('market')">🛒 Mercado</button>
+        </div>
+    </div>
+
+    <div id="save-indicator">💾 Jogo Salvo</div>
+
+    <div id="market-nav">
+        <button class="market-tab active" onclick="filterMarket('food')">🍖 Comida</button>
+        <button class="market-tab" onclick="filterMarket('bath')">🧼 Higiene</button>
+        <button class="market-tab" onclick="filterMarket('clean')">🧹 Casa</button>
+        <button class="market-tab" onclick="filterMarket('others')">🎾 Diversão</button>
+    </div>
+    <button id="checkout-btn" onclick="finalizePurchase()" disabled>✅ Comprar</button>
+
+    <!-- Fundos -->
+    <div id="bg-bedroom" class="room-bg bg-bedroom active"></div>
+    <div id="bg-kitchen" class="room-bg bg-kitchen"></div>
+    <div id="bg-livingroom" class="room-bg bg-livingroom"></div>
+    <div id="bg-bathroom" class="room-bg bg-bathroom"></div>
+    <div id="bg-backyard" class="room-bg bg-backyard"></div>
+    <div id="bg-market" class="room-bg bg-market"></div>
+
+    <!-- CACHORRO -->
+    <img id="avatar-dog" src="cachorro.png" class="draggable" draggable="false" data-target="bathtub" 
+         style="top: 65%; left: 45%;" 
+         onerror="this.style.display='none'; this.insertAdjacentHTML('afterend', '<div id=\'avatar-dog\' class=\'draggable\' data-target=\'bathtub\' style=\'font-size:5rem; top:65%; left:45%\'>🐶</div>')">
+
+    <!-- QUARTO -->
+    <div id="room-bedroom" class="room-content active">
+        <div id="wardrobe" class="drop-zone" data-type="clothes">
+            <img src="guardaroupa.png" class="zone-img" draggable="false" onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('afterbegin', '<span style=\'font-size:4rem\'>🚪</span>')">
+            <div class="zone-label">Roupas</div>
+        </div>
+        <div id="dogbed" class="drop-zone" data-type="bed">
+            <img src="camacachorro.png" class="zone-img" draggable="false" onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('afterbegin', '<span style=\'font-size:4rem\'>🛏️</span>')">
+            <div class="zone-label">Caminha</div>
+        </div>
+        <div id="toybox" class="drop-zone" data-type="toys">
+            <img src="baubrinquedo.png" class="zone-img" draggable="false" onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('afterbegin', '<span style=\'font-size:4rem\'>📦</span>')">
+            <div class="zone-label">Brinquedos</div>
+        </div>
+    </div>
+
+    <!-- COZINHA -->
+    <div id="room-kitchen" class="room-content">
+        <div id="fridge" class="drop-zone" data-type="fridge">
+            <img src="geladeira.png" class="zone-img" draggable="false" onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('afterbegin', '<span style=\'font-size:4rem\'>❄️</span>')">
+            <div class="zone-label">Geladeira</div>
+        </div>
+        <div id="table" class="drop-zone"><div style="font-size: 4.5rem;">🪑</div></div>
+        <div id="bowl" class="drop-zone" data-type="bowl">
+            <img src="tigela.png" class="zone-img" draggable="false" onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('afterbegin', '<div style=\'font-size:4rem\'>🥣</div>')">
+            <div class="zone-label">Comer</div>
+        </div>
+    </div>
+
+    <!-- SALA (REFORMULADA COM ARMAZENAMENTO) -->
+    <div id="room-livingroom" class="room-content">
+        <div id="tvstand" class="drop-zone" data-type="electronics">
+            <img src="tv.png" class="zone-img" draggable="false" onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('afterbegin', '<span style=\'font-size:4rem\'>📺</span>')">
+            <div class="zone-label">TV</div>
+        </div>
+        
+        <!-- NOVA ESTANTE PARA DECORAÇÃO/BAGUNÇA -->
+        <div id="bookshelf" class="drop-zone" data-type="decoration">
+            <img src="estante.png" class="zone-img" draggable="false" onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('afterbegin', '<div style=\'font-size:4rem; border:2px solid #8D6E63; padding:10px; background:#D7CCC8\'>📚</div>')">
+            <div class="zone-label">Estante</div>
+        </div>
+
+        <div id="living-rug"></div>
+        
+        <div id="sofa" class="drop-zone" data-type="comfort">
+            <img src="sofa.png" class="zone-img" draggable="false" onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('afterbegin', '<span style=\'font-size:4rem\'>🛋️</span>')">
+            <div class="zone-label">Sofá</div>
+        </div>
+        
+        <div id="sidetable" class="drop-zone" data-type="electronics">
+            <img src="mesalateral.png" class="zone-img" draggable="false" onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('afterbegin', '<span style=\'font-size:4rem\'>🪑</span>')">
+            <div class="zone-label">Mesa</div>
+        </div>
+    </div>
+
+    <!-- BANHEIRO -->
+    <div id="room-bathroom" class="room-content">
+        <div id="bathtub" class="drop-zone" data-type="bathtub"> 
+            <img src="banheira.png" class="zone-img" draggable="false" onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('afterbegin', '<span style=\'font-size:4rem\'>🛁</span>')">
+            <div class="zone-label">Banho</div>
+        </div>
+        <div id="toilet" class="drop-zone" data-type="toilet">
+            <img src="vaso.png" class="zone-img" draggable="false" onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('afterbegin', '<span style=\'font-size:4rem\'>🚽</span>')">
+            <div class="zone-label">Vaso</div>
+        </div>
+    </div>
+
+    <!-- QUINTAL -->
+    <div id="room-backyard" class="room-content">
+        <div id="doghouse" class="drop-zone" data-type="doghouse">
+            <img src="casinha.png" class="zone-img" draggable="false" onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('afterbegin', '<span style=\'font-size:4rem\'>🏠</span>')">
+            <div class="zone-label">Casinha</div>
+        </div>
+        <div id="garden" class="drop-zone" data-type="nature">
+            <img src="jardim.png" class="zone-img" draggable="false" onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('afterbegin', '<span style=\'font-size:4rem\'>🌻</span>')">
+            <div class="zone-label">Jardim</div>
+        </div>
+    </div>
+
+    <!-- MERCADO -->
+    <div id="room-market" class="room-content">
+        <div id="shopping-cart" class="drop-zone" data-type="cart">
+            <img src="carrinhocompra.png" class="zone-img" draggable="false" onerror="this.style.display='none'; this.parentNode.insertAdjacentHTML('afterbegin', '<span style=\'font-size:4rem\'>🛒</span>')">
+            <div class="zone-label">Carrinho</div>
+        </div>
+        <div id="shelf-container"></div>
+    </div>
+
+    <!-- GAME OVER -->
+    <div id="game-over-screen">
+        <div style="font-size: 5rem;">☠️</div>
+        <h1>Game Over</h1>
+        <p>O cachorrinho não resistiu.</p>
+        <button class="restart-btn" onclick="resetGameData()">Recomeçar</button>
+    </div>
+
+</div>
+
+<script>
+    /* --- AUDIO SYSTEM --- */
+    let audioCtx;
+    function initAudio() {
+        if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playSound(type) {
+        if(!audioCtx) initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if(type === 'pop') {
+            osc.type = 'sine'; osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        } else if(type === 'coin') {
+            osc.type = 'square'; osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(1600, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+        } else if(type === 'eat') {
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+        } else if(type === 'error') {
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+        } else if(type === 'water') {
+            const bufferSize = audioCtx.sampleRate * 0.5; 
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            const noiseGain = audioCtx.createGain();
+            noiseGain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            noiseGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+            noise.connect(noiseGain);
+            noiseGain.connect(audioCtx.destination);
+            noise.start();
+        } else if(type === 'flush') {
+            osc.type = 'sawtooth'; 
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.8);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.8);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.8);
+        } else if(type === 'bark') {
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        }
+    }
+
+    /* --- ESTADO --- */
+    let gameState = {
+        wallet: 50,
+        energy: 100,
+        hygiene: 100,
+        happy: 100
+    };
+    
+    let gameLoopId;
+    let currentRoom = 'bedroom';
+    let currentSegment = 'food';
+    let cartItems = [];
+    let isDragging = false;
+    
+    const dog = document.getElementById('avatar-dog');
+    const walletEl = document.getElementById('wallet');
+    
+    const marketProducts = [
+        {e:'🍖', p:15, s:'food', r:'kitchen', t:'fridge'}, {e:'🍗', p:12, s:'food', r:'kitchen', t:'fridge'},
+        {e:'🍔', p:18, s:'food', r:'kitchen', t:'fridge'}, {e:'🧼', p:15, s:'bath', r:'bathroom', t:'bathtub'}, 
+        {e:'🧸', p:25, s:'others', r:'bedroom', t:'toys'}, {e:'🎾', p:10, s:'others', r:'backyard', t:'doghouse'}
+    ];
+    
+    // Bagunça atualizada para usar a Estante (decoration)
+    const messTypes = [
+        {e:'💩', t:'toilet', r:'bathroom', v:10}, {e:'🧦', t:'clothes', r:'bedroom', v:5},
+        {e:'🦴', t:'bed', r:'bedroom', v:5}, {e:'👣', t:'floor', r:'livingroom', v:8}, 
+        {e:'🦟', t:'nature', r:'backyard', v:6}, {e:'📄', t:'electronics', r:'livingroom', v:5},
+        {e:'📚', t:'decoration', r:'livingroom', v:12} // Nova bagunça pra estante
+    ];
+
+    window.onload = function() {
+        loadGame();
+        renderMarket();
+        spawnInitialMess();
+        checkRoomTasks();
+        startGameLoop();
+        
+        document.querySelectorAll('.draggable').forEach(item => addDragEvents(item));
+        dog.addEventListener('mousedown', petDog);
+        dog.addEventListener('touchstart', petDog, {passive: false});
+        addDragEvents(dog);
+        
+        updateAllStats();
+    };
+
+    function startGameLoop() {
+        gameLoopId = setInterval(() => {
+            gameState.energy -= 0.15;
+            gameState.hygiene -= 0.08;
+            gameState.happy -= 0.1;
+
+            if(gameState.energy <= 0) gameOver();
+            
+            gameState.energy = Math.max(0, Math.min(100, gameState.energy));
+            gameState.hygiene = Math.max(0, Math.min(100, gameState.hygiene));
+            gameState.happy = Math.max(0, Math.min(100, gameState.happy));
+
+            updateAllStats();
+            updateDogVisuals();
+            
+            if(Math.random() < 0.1) saveGame();
+        }, 500);
+
+        setInterval(dogWander, 3000);
+        setInterval(spawnRandomMess, 15000);
+    }
+
+    function updateAllStats() {
+        document.getElementById('energy-bar').style.width = gameState.energy + '%';
+        document.getElementById('energy-val').innerText = Math.floor(gameState.energy) + '%';
+        document.getElementById('hygiene-bar').style.width = gameState.hygiene + '%';
+        document.getElementById('hygiene-val').innerText = Math.floor(gameState.hygiene) + '%';
+        document.getElementById('happy-bar').style.width = gameState.happy + '%';
+        document.getElementById('happy-val').innerText = Math.floor(gameState.happy) + '%';
+        walletEl.innerText = gameState.wallet;
+    }
+
+    function updateDogVisuals() {
+        if (gameState.energy < 30) dog.classList.add('dog-hungry');
+        else dog.classList.remove('dog-hungry');
+
+        if (gameState.hygiene < 40) dog.classList.add('dog-dirty');
+        else dog.classList.remove('dog-dirty');
+    }
+
+    function petDog(e) {
+        if(isDragging) return;
+        initAudio();
+        playSound('bark');
+        gameState.happy = Math.min(100, gameState.happy + 5);
+        updateAllStats();
+        
+        const rect = dog.getBoundingClientRect();
+        const x = e.clientX || (e.touches ? e.touches[0].clientX : rect.left);
+        const y = e.clientY || (e.touches ? e.touches[0].clientY : rect.top);
+        
+        const el = document.createElement('div');
+        el.className = 'heart-anim'; el.innerText = '❤️';
+        el.style.left = x + 'px'; el.style.top = y + 'px';
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 1500);
+    }
+
+    function dogWander() {
+        if(isDragging || currentRoom === 'market') return;
+        
+        // SE O CACHORRO SE MOVER SOZINHO, RESTAURA O TAMANHO NORMAL
+        dog.style.transform = 'scale(1)'; 
+
+        if(Math.random() > 0.5) {
+            const randomLeft = 20 + Math.random() * 60; 
+            const randomTop = 50 + Math.random() * 30; 
+            dog.style.left = randomLeft + '%';
+            dog.style.top = randomTop + '%';
+        }
+    }
+
+    /* --- DRAG & DROP --- */
+    let activeItem = null;
+
+    function addDragEvents(item) {
+        item.addEventListener('mousedown', dragStart);
+        item.addEventListener('touchstart', dragStart, {passive: false});
+    }
+    document.addEventListener('mousemove', dragMove);
+    document.addEventListener('touchmove', dragMove, {passive: false});
+    document.addEventListener('mouseup', dragEnd);
+    document.addEventListener('touchend', dragEnd);
+
+    function dragStart(e) {
+        if(e.target.closest('.placed') || e.target.closest('.price-tag')) return;
+        initAudio();
+        activeItem = e.target.closest('.draggable');
+        if(!activeItem) return;
+        isDragging = true;
+        activeItem.style.transition = 'none';
+        
+        // SE PEGOU O CACHORRO, RESTAURA O TAMANHO
+        if(activeItem.id === 'avatar-dog') {
+            activeItem.style.transform = 'scale(1)';
+        }
+        
+        const rect = activeItem.getBoundingClientRect();
+        const cx = e.touches ? e.touches[0].clientX : e.clientX;
+        const cy = e.touches ? e.touches[0].clientY : e.clientY;
+        
+        if(!activeItem.dataset.origTop) {
+            activeItem.dataset.origTop = activeItem.style.top;
+            activeItem.dataset.origLeft = activeItem.style.left;
+        }
+        
+        activeItem.dataset.offsetX = cx - rect.left;
+        activeItem.dataset.offsetY = cy - rect.top;
+        activeItem.style.zIndex = 1000;
+    }
+
+    function dragMove(e) {
+        if(!activeItem) return;
+        e.preventDefault();
+        const cx = e.touches ? e.touches[0].clientX : e.clientX;
+        const cy = e.touches ? e.touches[0].clientY : e.clientY;
+        const contRect = document.getElementById('game-container').getBoundingClientRect();
+        
+        let newLeft = cx - contRect.left - (parseFloat(activeItem.dataset.offsetX)||0);
+        let newTop = cy - contRect.top - (parseFloat(activeItem.dataset.offsetY)||0);
+        activeItem.style.left = newLeft + 'px';
+        activeItem.style.top = newTop + 'px';
+    }
+
+    function dragEnd(e) {
+        if (!activeItem) return;
+        isDragging = false;
+        activeItem.style.zIndex = '';
+        activeItem.style.transition = 'top 0.3s, left 0.3s, transform 0.3s';
+
+        const isFood = activeItem.dataset.category === 'food' || activeItem.dataset.segment === 'food';
+        const canEat = isFood && currentRoom === 'kitchen' && !activeItem.classList.contains('market-item');
+
+        if (canEat && isColliding(activeItem, dog)) {
+            consumeItem(activeItem);
+            return;
+        }
+
+        // --- LOGICA DO CACHORRO (BANHO, VASO, CASINHA) ---
+        if (activeItem.id === 'avatar-dog') {
+            const bathtub = document.getElementById('bathtub');
+            const toilet = document.getElementById('toilet');
+            const doghouse = document.getElementById('doghouse');
+            
+            if (currentRoom === 'bathroom') {
+                if (isColliding(dog, bathtub)) {
+                    giveBath();
+                } else if (isColliding(dog, toilet)) {
+                    useToilet();
+                }
+            } else if (currentRoom === 'backyard') {
+                if (isColliding(dog, doghouse)) {
+                    enterDogHouse(); // Nova função
+                }
+            }
+            activeItem = null;
+            return;
+        }
+
+        const targetType = activeItem.dataset.target;
+        const zones = document.querySelectorAll(`#room-${currentRoom} .drop-zone`);
+        let dropped = false;
+        let finalZone = null;
+
+        zones.forEach(z => {
+            if (isColliding(activeItem, z)) {
+                if (z.dataset.type === 'bowl' && canEat) {
+                    dropped = true; finalZone = z;
+                } else if (activeItem.dataset.segment === 'bath' && z.dataset.type === 'bathtub') {
+                    dropped = true; finalZone = z;
+                } else if (z.dataset.type === targetType) {
+                    dropped = true; finalZone = z;
+                }
+            }
+        });
+
+        if (dropped) {
+            if (currentRoom === 'market') {
+                addToCart(activeItem);
+            } else if (finalZone.dataset.type === 'bowl') {
+                moveDogToBowl(); consumeItem(activeItem);
+            } else if (activeItem.dataset.segment === 'bath') {
+                useBathItem(activeItem);
+            } else {
+                cleanMess(activeItem, finalZone);
+            }
+        } else {
+            activeItem.style.animation = 'shakeDog 0.3s';
+            playSound('error');
+            setTimeout(() => {
+                activeItem.style.animation = '';
+                activeItem.style.left = activeItem.dataset.origLeft;
+                activeItem.style.top = activeItem.dataset.origTop;
+            }, 300);
+        }
+        activeItem = null;
+    }
+
+    function consumeItem(item) {
+        playSound('eat');
+        item.remove();
+        gameState.energy = Math.min(100, gameState.energy + 30);
+        dog.classList.add('dog-eating');
+        setTimeout(() => dog.classList.remove('dog-eating'), 1000);
+        showFloatText('Delícia!', dog, '#FF69B4');
+        updateAllStats();
+    }
+
+    function giveBath() {
+        playSound('water');
+        gameState.hygiene = 100;
+        showFloatText('Banho Bom!', dog, '#29B6F6');
+        spawnParticles(dog.offsetLeft, dog.offsetTop, '🫧', 15);
+        spawnParticles(dog.offsetLeft, dog.offsetTop, '💧', 15);
+        updateAllStats();
+        
+        // Posiciona e reduz o tamanho
+        dog.style.left = '20%'; dog.style.top = '40%';
+        dog.style.transform = 'scale(0.7)'; 
+    }
+
+    function useToilet() {
+        playSound('flush');
+        showFloatText('Alívio!', dog, '#8D6E63');
+        spawnParticles(dog.offsetLeft, dog.offsetTop, '💨', 10);
+        spawnParticles(dog.offsetLeft, dog.offsetTop, '✨', 5);
+        gameState.hygiene = Math.min(100, gameState.hygiene + 10);
+        updateAllStats();
+    }
+
+    // NOVA FUNÇÃO PARA A CASINHA
+    function enterDogHouse() {
+        showFloatText('Zzz...', dog, '#FFFFFF');
+        dog.style.left = '18%'; dog.style.top = '50%';
+        dog.style.transform = 'scale(0.6)'; // Fica bem pequeno pra caber
+        gameState.energy = Math.min(100, gameState.energy + 2); // Descansa um pouco
+        updateAllStats();
+    }
+
+    function useBathItem(item) {
+        item.remove();
+        giveBath();
+    }
+
+    function cleanMess(item, zone) {
+        playSound('pop');
+        item.classList.add('placed');
+        zone.classList.add('zone-success');
+        setTimeout(() => zone.classList.remove('zone-success'), 500);
+        
+        if(item.classList.contains('initial-mess') || item.classList.contains('spawned-mess')) {
+            const val = parseInt(item.dataset.value);
+            gameState.wallet += val;
+            playSound('coin');
+            spawnConfetti(zone.offsetLeft + zone.offsetWidth/2, zone.offsetTop);
+            showFloatText(`+R$ ${val}`, zone, '#4CAF50');
+            item.remove();
+            checkRoomTasks();
+            updateAllStats();
+        }
+    }
+
+    function moveDogToBowl() {
+        if(currentRoom === 'kitchen') {
+            dog.style.transition = 'all 1s';
+            dog.style.top = '65%'; dog.style.left = '25%';
+        }
+    }
+
+    function spawnInitialMess() {
+        if(!localStorage.getItem('dogHouseSave')) {
+            spawnMessItem('bedroom', '🧦', 'clothes', 10);
+            spawnMessItem('livingroom', '💩', 'floor', 5);
+            spawnMessItem('livingroom', '📚', 'decoration', 12); // Livro bagunçado
+        }
+    }
+
+    function spawnRandomMess() {
+        const randomMess = messTypes[Math.floor(Math.random() * messTypes.length)];
+        spawnMessItem(randomMess.r, randomMess.e, randomMess.t, randomMess.v);
+        showFloatText('Nova Bagunça!', document.querySelector('.nav-btn.active'), '#FF0000');
+        playSound('error');
+    }
+
+    function spawnMessItem(room, emoji, target, val) {
+        const r = document.getElementById('room-' + room);
+        const d = document.createElement('div');
+        d.className = 'draggable initial-mess spawned-mess';
+        d.innerHTML = emoji;
+        d.dataset.target = target;
+        d.dataset.value = val;
+        d.style.left = (20 + Math.random()*60) + '%';
+        d.style.top = (60 + Math.random()*20) + '%';
+        r.appendChild(d);
+        addDragEvents(d);
+        checkRoomTasks();
+    }
+
+    function saveGame() {
+        const save = { stats: gameState, ts: Date.now() };
+        localStorage.setItem('dogHouseSave', JSON.stringify(save));
+        const ind = document.getElementById('save-indicator');
+        ind.style.opacity = 1;
+        setTimeout(()=>ind.style.opacity=0, 2000);
+    }
+
+    function loadGame() {
+        const data = localStorage.getItem('dogHouseSave');
+        if(data) {
+            const parsed = JSON.parse(data);
+            gameState = parsed.stats;
+            updateAllStats();
+        }
+    }
+
+    function resetGameData() {
+        localStorage.removeItem('dogHouseSave');
+        location.reload();
+    }
+
+    function gameOver() {
+        clearInterval(gameLoopId);
+        playSound('error');
+        document.getElementById('game-over-screen').style.display = 'flex';
+    }
+
+    function spawnConfetti(x, y) {
+        spawnParticles(x, y, '', 10, true);
+    }
+
+    function spawnParticles(x, y, char, count, isColor = false) {
+        for(let i=0; i<count; i++) {
+            const p = document.createElement('div');
+            if(char) {
+                p.className = 'emoji-particle';
+                p.innerText = char;
+            } else {
+                p.className = 'particle';
+            }
+            
+            if(isColor) p.style.backgroundColor = `hsl(${Math.random()*360}, 100%, 50%)`;
+            
+            p.style.left = x + 'px'; p.style.top = y + 'px';
+            document.getElementById('game-container').appendChild(p);
+            
+            const angle = Math.random() * Math.PI * 2;
+            const vel = Math.random() * 60 + 20;
+            const tx = Math.cos(angle) * vel;
+            const ty = Math.sin(angle) * vel - 60;
+            
+            p.animate([
+                {transform: `translate(0,0) scale(0.5)`, opacity: 1},
+                {transform: `translate(${tx}px, ${ty}px) scale(1.2)`, opacity: 0}
+            ], {duration: 1000, easing: 'ease-out'}).onfinish = () => p.remove();
+        }
+    }
+
+    function showFloatText(text, target, color) {
+        const rect = target.getBoundingClientRect();
+        const contRect = document.getElementById('game-container').getBoundingClientRect();
+        const el = document.createElement('div');
+        el.className = 'float-feedback';
+        el.style.color = color;
+        el.innerText = text;
+        el.style.left = (rect.left - contRect.left) + 'px';
+        el.style.top = (rect.top - contRect.top) + 'px';
+        document.getElementById('game-container').appendChild(el);
+        setTimeout(() => el.remove(), 1000);
+    }
+
+    function changeRoom(room) {
+        currentRoom = room;
+        document.querySelectorAll('.room-bg').forEach(el=>el.classList.remove('active'));
+        document.getElementById('bg-'+room).classList.add('active');
+        document.querySelectorAll('.room-content').forEach(el=>el.classList.remove('active'));
+        document.getElementById('room-'+room).classList.add('active');
+        
+        document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+        document.querySelector(`.nav-btn[data-room="${room}"]`).classList.add('active');
+
+        const isMarket = (room === 'market');
+        document.getElementById('market-nav').style.display = isMarket ? 'block' : 'none';
+        document.getElementById('checkout-btn').style.display = isMarket ? 'block' : 'none';
+    }
+
+    function checkRoomTasks() {
+        ['bedroom','kitchen','livingroom','bathroom','backyard'].forEach(r => {
+            const has = document.querySelector(`#room-${r} .initial-mess`);
+            const badge = document.querySelector(`.nav-btn[data-room="${r}"] .task-badge`);
+            if(badge) badge.style.display = has ? 'block' : 'none';
+        });
+    }
+
+    function isColliding(a, b) {
+        const r1 = a.getBoundingClientRect();
+        const r2 = b.getBoundingClientRect();
+        return !(r1.right < r2.left || r1.left > r2.right || r1.bottom < r2.top || r1.top > r2.bottom);
+    }
+
+    function filterMarket(seg) {
+        currentSegment = seg;
+        document.querySelectorAll('.market-tab').forEach(b=>b.classList.remove('active'));
+        event.target.classList.add('active');
+        renderMarket();
+    }
+    function renderMarket() {
+        const container = document.getElementById('shelf-container');
+        container.innerHTML = '';
+        const items = marketProducts.filter(p => p.s === currentSegment);
+        items.forEach((prod, i) => {
+            const row = Math.floor(i/6); const col = i%6;
+            const d = document.createElement('div');
+            d.className = 'draggable item market-item';
+            d.dataset.target = 'cart';
+            d.dataset.price = prod.p;
+            d.dataset.room = prod.r; d.dataset.final = prod.t; d.dataset.segment = prod.s; d.dataset.category = prod.s === 'food' ? 'food' : 'other';
+            d.style.top = (25 + row*15) + '%'; d.style.left = (10 + col*15) + '%';
+            d.innerHTML = `${prod.e}<span class="price-tag">R$${prod.p}</span>`;
+            container.appendChild(d);
+            addDragEvents(d);
+        });
+    }
+    function addToCart(item) {
+        const price = parseInt(item.dataset.price);
+        if(gameState.wallet >= price) {
+            gameState.wallet -= price;
+            playSound('coin');
+            updateAllStats();
+            cartItems.push({ html: item.innerHTML, room: item.dataset.room, target: item.dataset.final, cat: item.dataset.category, seg: item.dataset.segment });
+            item.classList.add('placed');
+            document.getElementById('checkout-btn').disabled = false;
+            document.getElementById('checkout-btn').innerText = `✅ Comprar (${cartItems.length})`;
+        } else {
+            resetItem(item); playSound('error');
+        }
+    }
+    function finalizePurchase() {
+        playSound('pop');
+        cartItems.forEach(i => {
+            const r = document.getElementById('room-'+i.room);
+            const d = document.createElement('div');
+            d.className = 'draggable item spawned-item';
+            d.innerHTML = i.html;
+            d.dataset.target = i.target;
+            d.dataset.category = i.cat;
+            d.dataset.segment = i.seg;
+            d.style.left = (20 + Math.random()*60)+'%';
+            d.style.top = (60 + Math.random()*20)+'%';
+            r.appendChild(d);
+            addDragEvents(d);
+        });
+        cartItems = [];
+        document.getElementById('checkout-btn').innerText = '✅ Comprar';
+        document.getElementById('checkout-btn').disabled = true;
+        alert('Entregas realizadas nas salas!');
+    }
+    function resetItem(item) {
+        item.style.transition = 'all 0.3s';
+        item.style.left = item.dataset.origLeft;
+        item.style.top = item.dataset.origTop;
+    }
+
+</script>
+</body>
+</html>
